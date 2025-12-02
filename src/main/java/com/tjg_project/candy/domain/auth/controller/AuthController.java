@@ -27,7 +27,7 @@ public class AuthController {
     private final UsersService usersService;
     private final Set<String> allowedOrigins = Set.of(
             "http://localhost:3000",
-            "https://candy-site-e28z.vercel.app"
+            "https://candy-site.vercel.app"
     );
 
     @Autowired

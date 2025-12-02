@@ -61,7 +61,7 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "https://localhost:3000",
                 "http://127.0.0.1:3000",
-                "https://candy-site-e28z.vercel.app" // ← 슬래시 절대 넣지 말기
+                "https://candy-site.vercel.app" // ← 슬래시 절대 넣지 말기
         ));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
