@@ -29,18 +29,19 @@ public class Recipe {
     @Column(length = 300)
     private String summary;
 
-    @Column(name = "rating", columnDefinition = "DOUBLE DEFAULT 0")
-    private double rating;
+    @Builder.Default
+    @Column(nullable = false)
+    private Double rating = 0.0;
 
-    @Column(name = "review_count", columnDefinition = "INT DEFAULT 0")
-    private int reviewCount;
+    @Builder.Default
+    @Column(name = "review_count", nullable = false)
+    private int reviewCount = 0;
 
     @Lob
-    @Column(columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "difficulty", length = 20)
-    private String difficulty;  // 🔥 추가됨!
+    private String difficulty;
 
     @Lob
     private String ingredients;
@@ -61,7 +62,6 @@ public class Recipe {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-
     @Column(name = "youtube_url", length = 255)
     private String youtubeUrl;
 
@@ -74,6 +74,4 @@ public class Recipe {
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
-
-
 }

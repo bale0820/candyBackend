@@ -1,7 +1,7 @@
 package com.tjg_project.candy.domain.notice.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -9,25 +9,30 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table(name = "notice")
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Notice {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // 공지 ID (PK)
+    private Long id;
 
     @Column(length = 200, nullable = false)
-    private String title; // 공지 제목
+    private String title;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
-    private String content; // 공지 내용
+    @Lob
+    @Column(nullable = false)
+    private String content;
 
     @Column(length = 30)
-    private String writer; // 작성자 (옵션)
+    private String writer;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // 등록일 (자동 생성)
+    private LocalDateTime createdAt;
 
-    @Column(name = "is_pinned", columnDefinition = "TINYINT(1)")
-    private Boolean isPinned = false; // 상단 고정 여부 (선택적)
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean isPinned = false;
 }
