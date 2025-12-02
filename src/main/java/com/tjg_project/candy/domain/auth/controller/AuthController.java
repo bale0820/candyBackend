@@ -25,7 +25,10 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final AuthService authService;
     private final UsersService usersService;
-    private final Set<String> allowedOrigins = Set.of("http://localhost:3000");
+    private final Set<String> allowedOrigins = Set.of(
+            "http://localhost:3000",
+            "https://candy-site-e28z.vercel.app"
+    );
 
     @Autowired
     public AuthController(JwtUtil jwtUtil, AuthService authService, UsersService usersService) {
@@ -87,12 +90,15 @@ public class AuthController {
         String origin = request.getHeader("Origin");
         String referer = request.getHeader("Referer");
         System.out.println("origin"+ origin);
-        if (origin == null && !origin.equals("http://localhost:3000")) {
+        if (origin == null || !allowedOrigins.contains(origin)) {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid origin"));
         }
-        if (referer == null || allowedOrigins.stream().noneMatch(referer::startsWith)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Invalid Referer or Missing Headers");
+
+        if (referer != null) {
+            if (allowedOrigins.stream().noneMatch(referer::startsWith)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body("Invalid Referer");
+            }
         }
 
         if (token == null)
