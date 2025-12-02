@@ -9,9 +9,9 @@ spring:
       max-request-size: 50MB    # 요청 전체 최대 크기
 
   datasource:
-    url: jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
-    username: postgres
-    password: CandyProject@123
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
