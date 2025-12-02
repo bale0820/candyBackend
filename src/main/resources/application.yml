@@ -9,15 +9,18 @@ spring:
       max-request-size: 50MB    # 요청 전체 최대 크기
 
   datasource:
-    url: jdbc:mysql://localhost:3306/candy?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: root
-    password: mysql1234
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:postgresql://(여기에 Pooler Host 주소):5432/postgres
+    username: postgres
+    password: CandyProject@123
+    driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update   # 엔티티 변경 시 DB 테이블 자동 수정
-    show-sql: true       # SQL 쿼리 콘솔 출력
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   security:
     oauth2:
