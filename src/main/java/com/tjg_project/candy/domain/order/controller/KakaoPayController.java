@@ -55,7 +55,8 @@ public class KakaoPayController {
 
         productService.updateCount(productInfo);
 
-        URI redirect = URI.create("http://localhost:3000/payResult?orderId=" + orderId + "&status=success");
+        URI redirect = URI.create("https://candy-site.vercel.app/payResult?orderId="
+                + orderId + "&status=success");
         HttpHeaders headers = new HttpHeaders();
         headers.setLocation(redirect);
         return new ResponseEntity<>(headers, HttpStatus.FOUND);
