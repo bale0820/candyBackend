@@ -5,14 +5,21 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 50MB       # 개별 파일 최대 크기
-      max-request-size: 50MB    # 요청 전체 최대 크기
+      max-file-size: 50MB
+      max-request-size: 50MB
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
+
+    hikari:
+      maximum-pool-size: 5     # 🔥 Supabase 무료 플랜 필수
+      minimum-idle: 2
+      idle-timeout: 10000
+      max-lifetime: 30000
+      connection-timeout: 5000
 
   jpa:
     hibernate:
@@ -26,9 +33,6 @@ spring:
     oauth2:
       client:
         registration:
-          # ===============================
-          # ✅ 네이버 OAuth2 설정
-          # ===============================
           naver:
             client-id: Ap6rPG4ps7AgPG4l_DPi
             client-secret: 4LXJQBePIG
@@ -39,9 +43,6 @@ spring:
               - email
             client-name: Naver
 
-          # ===============================
-          # ✅ 카카오 OAuth2 설정
-          # ===============================
           kakao:
             client-id: 0c7f1ee8455f9a00270728ad7ad196ec
             client-secret:
@@ -65,15 +66,11 @@ spring:
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
 
-# ===============================
-# ✅ 파일 업로드 설정
-# ===============================
+# 파일 업로드 설정
 file:
   upload-dir: C:/uploads/images
 
-# ===============================
-# ✅ 카카오페이 결제 설정
-# ===============================
+# 카카오페이
 kakao:
   pay:
     host: https://kapi.kakao.com
@@ -82,9 +79,7 @@ kakao:
     ready-path: /payment/ready
     approve-path: /payment/approve
 
-# ===============================
-# ✅ 네이버페이 결제 설정
-# ===============================
+# 네이버페이
 naver:
   pay:
     host: https://sandbox-nsp.pay.naver.com
