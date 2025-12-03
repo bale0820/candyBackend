@@ -20,9 +20,9 @@ public class JwtUtil {
     private final Key key;
 
     // ✅ AccessToken: 10분
-//    private final long accessTokenExpiration = 1000 * 60 * 10;
+    private final long accessTokenExpiration = 1000 * 60 * 10;
 // ✅ AccessToken: 10분
-    private final long accessTokenExpiration = 1000 * 5;
+//    private final long accessTokenExpiration = 1000 * 5;
 
     // ✅ secret이 주입된 뒤 Key 생성
     public JwtUtil(@Value("${jwt.secret}") String secret) {
