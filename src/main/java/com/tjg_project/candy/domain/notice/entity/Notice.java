@@ -21,8 +21,7 @@ public class Notice {
     @Column(length = 200, nullable = false)
     private String title;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
     @Column(length = 30)
