@@ -44,10 +44,13 @@ public class Recipe {
     private String difficulty;
 
     @Lob
+    @Column(columnDefinition = "TEXT")
     private String ingredients;
 
     @Lob
+    @Column(columnDefinition = "TEXT")
     private String steps;
+
 
     @Column(length = 300)
     private String tips;
