@@ -37,7 +37,7 @@ public class Recipe {
     @Column(name = "review_count", nullable = false)
     private int reviewCount = 0;
 
-    @Lob
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
     @Column(name = "difficulty", length = 20)
