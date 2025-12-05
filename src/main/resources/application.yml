@@ -75,7 +75,7 @@ file:
 kakao:
   pay:
     host: https://kapi.kakao.com
-    admin-key: ed1df4b9d47e4cb603d7dbc8e7124cbb
+    admin-key: fe5e5f362ddb9f401f48680279da0f10
     cid: TC0ONETIME
     ready-path: /payment/ready
     approve-path: /payment/approve
