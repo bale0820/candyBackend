@@ -62,7 +62,7 @@ public class CustomOAuth2SuccessHandler implements AuthenticationSuccessHandler 
 
         // ✅ React로 리다이렉트 (AccessToken, provider, userId 전달)
         String redirectUrl = String.format(
-                "http://localhost:3000/oauth/success?accessToken=%s&provider=%s&userId=%d&success=%d",
+                "https://candy-site.vercel.app/success?accessToken=%s&provider=%s&userId=%d&success=%d",
                 accessToken, provider, userId, 200
         );
 
