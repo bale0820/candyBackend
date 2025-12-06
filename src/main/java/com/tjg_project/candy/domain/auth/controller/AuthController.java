@@ -8,7 +8,6 @@ import com.tjg_project.candy.global.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +25,7 @@ public class AuthController {
     private final AuthService authService;
     private final UsersService usersService;
 
+    // ❗ origin만 넣는다 (referer는 startsWith로 검사)
     private final Set<String> allowedOrigins = Set.of(
             "http://localhost:3000",
             "https://candy-site.vercel.app"
@@ -38,9 +38,6 @@ public class AuthController {
         this.usersService = usersService;
     }
 
-    /**
-     * 환경에 따라 secure 자동 적용
-     */
     private boolean isLocalhost(String origin) {
         return origin != null && origin.startsWith("http://localhost");
     }
@@ -48,9 +45,9 @@ public class AuthController {
     private ResponseCookie buildCookie(String name, String value, boolean secure) {
         return ResponseCookie.from(name, value)
                 .httpOnly(true)
-                .secure(secure)              // 🔥 HTTPS 환경에서는 반드시 true
+                .secure(secure)
                 .path("/")
-                .sameSite("None")           // 🔥 cross-site 전송 허용
+                .sameSite("None")
                 .maxAge(7 * 24 * 60 * 60)
                 .build();
     }
@@ -65,9 +62,7 @@ public class AuthController {
                 .build();
     }
 
-    /**
-     * ✅ 로그인 처리
-     */
+    /** 로그인 */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Users user, HttpServletRequest request) {
 
@@ -81,13 +76,9 @@ public class AuthController {
         RefreshToken refresh = authService.createRefreshToken(userId);
 
         String csrfToken = UUID.randomUUID().toString();
-
         boolean secure = !isLocalhost(request.getHeader("Origin"));
 
-        // refresh token
         ResponseCookie refreshCookie = buildCookie("refresh_token", refresh.getToken(), secure);
-
-        // csrf token
         ResponseCookie csrfCookie = buildCsrfCookie(csrfToken, secure);
 
         return ResponseEntity.ok()
@@ -99,9 +90,7 @@ public class AuthController {
                 ));
     }
 
-    /**
-     * 🔄 토큰 재발급(refresh)
-     */
+    /** refresh */
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(
             @CookieValue(value = "refresh_token", required = false) String token,
@@ -113,16 +102,22 @@ public class AuthController {
         String origin = request.getHeader("Origin");
         String referer = request.getHeader("Referer");
 
+        // 🔥 origin strict check
         if (origin == null || !allowedOrigins.contains(origin)) {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid origin"));
         }
 
-        if (referer != null && allowedOrigins.stream().noneMatch(referer::startsWith)) {
-            return ResponseEntity.status(403).body("Invalid Referer");
+        // 🔥 referer startsWith 검사 (중요)
+        if (referer != null) {
+            boolean ok = allowedOrigins.stream().anyMatch(referer::startsWith);
+            if (!ok) {
+                return ResponseEntity.status(403).body(Map.of("error", "Invalid referer"));
+            }
         }
 
-        if (token == null)
+        if (token == null) {
             return ResponseEntity.status(401).body(Map.of("error", "No refresh token"));
+        }
 
         // CSRF 검사
         if (csrfCookie == null || csrfHeader == null || !csrfCookie.equals(csrfHeader)) {
@@ -130,8 +125,9 @@ public class AuthController {
         }
 
         Optional<RefreshToken> newRefreshOpt = authService.verifyToken(token);
-        if (newRefreshOpt.isEmpty())
+        if (newRefreshOpt.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid or expired refresh token"));
+        }
 
         RefreshToken newRefresh = newRefreshOpt.get();
         Long userId = newRefresh.getUserId();
@@ -148,9 +144,7 @@ public class AuthController {
                 .body(Map.of("accessToken", newAccessToken));
     }
 
-    /**
-     * 🚪 로그아웃
-     */
+    /** logout */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(
             @CookieValue(value = "refresh_token", required = false) String token,

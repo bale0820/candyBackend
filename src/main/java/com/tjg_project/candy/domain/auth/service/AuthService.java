@@ -23,8 +23,6 @@ public class AuthService {
         String rawToken = UUID.randomUUID().toString();
         String hashedToken = DigestUtils.sha256Hex(rawToken);
 
-        System.out.println("🔍rawToken: " + rawToken);
-        System.out.println("🔍 hashedToken " + DigestUtils.sha256Hex(rawToken));
         RefreshToken entity = new RefreshToken();
         entity.setUserId(userId);
         entity.setToken(hashedToken);
@@ -42,11 +40,8 @@ public class AuthService {
 
     @Transactional
     public Optional<RefreshToken> verifyToken(String token) {
-        System.out.println("🔍 incoming token: " + token);
-        System.out.println("🔍 hashed token: " + DigestUtils.sha256Hex(token));
         String hashed = DigestUtils.sha256Hex(token);
         Optional<RefreshToken> existing = refreshTokenRepository.findByToken(hashed);
-        System.out.println("existing"+ existing);
         if (existing.isEmpty()) return Optional.empty();
         RefreshToken found = existing.get();
 
