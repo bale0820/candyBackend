@@ -5,7 +5,6 @@ import com.tjg_project.candy.domain.auth.service.AuthService;
 import com.tjg_project.candy.domain.user.entity.Users;
 import com.tjg_project.candy.domain.user.service.UsersService;
 import com.tjg_project.candy.global.util.JwtUtil;
-
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -38,32 +37,19 @@ public class AuthController {
         this.usersService = usersService;
     }
 
-    private boolean isLocalhost(String origin) {
-        return origin != null && origin.startsWith("http://localhost");
+    private boolean isLocal(String origin) {
+        return origin == null || origin.startsWith("http://localhost");
     }
 
-    // ★ Refresh Token 쿠키 설정
-    private ResponseCookie buildCookie(String name, String value, boolean secure) {
+    /** 공통 쿠키 생성 함수 */
+    private ResponseCookie buildCookie(String name, String value, boolean secure, boolean httpOnly) {
         return ResponseCookie.from(name, value)
-                .httpOnly(true)
+                .httpOnly(httpOnly)
                 .secure(secure)
                 .path("/")
-                .domain("candybackend-6skt.onrender.com")   // ★ 핵심
                 .sameSite("None")
                 .maxAge(7 * 24 * 60 * 60)
-                .build();
-    }
-
-    // ★ CSRF Token 쿠키 설정
-    private ResponseCookie buildCsrfCookie(String value, boolean secure) {
-        return ResponseCookie.from("XSRF-TOKEN", value)
-                .httpOnly(false)
-                .secure(secure)
-                .path("/")
-                .domain("candybackend-6skt.onrender.com")   // ★ 핵심
-                .sameSite("None")
-                .maxAge(7 * 24 * 60 * 60)
-                .build();
+                .build(); // ❗ domain 절대 넣지 말 것
     }
 
     /** 로그인 */
@@ -76,15 +62,19 @@ public class AuthController {
         }
 
         Long userId = us.getId();
-
         String accessToken = jwtUtil.generateAccessToken(userId);
         RefreshToken refresh = authService.createRefreshToken(userId);
 
-        boolean secure = !isLocalhost(request.getHeader("Origin"));
+        String origin = request.getHeader("Origin");
+        boolean secure = !isLocal(origin);
+
         String csrfToken = UUID.randomUUID().toString();
 
-        ResponseCookie refreshCookie = buildCookie("refresh_token", refresh.getToken(), secure);
-        ResponseCookie csrfCookie = buildCsrfCookie(csrfToken, secure);
+        ResponseCookie refreshCookie =
+                buildCookie("refresh_token", refresh.getToken(), secure, true);
+
+        ResponseCookie csrfCookie =
+                buildCookie("XSRF-TOKEN", csrfToken, secure, false);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
@@ -95,7 +85,7 @@ public class AuthController {
                 ));
     }
 
-    /** 토큰 재발급 */
+    /** refresh */
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(
             @CookieValue(value = "refresh_token", required = false) String token,
@@ -124,27 +114,29 @@ public class AuthController {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid CSRF token"));
         }
 
-        Optional<RefreshToken> newRefreshOpt = authService.verifyToken(token);
-        if (newRefreshOpt.isEmpty()) {
+        Optional<RefreshToken> opt = authService.verifyToken(token);
+        if (opt.isEmpty()) {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid or expired refresh token"));
         }
 
-        RefreshToken newRefresh = newRefreshOpt.get();
-        Long userId = newRefresh.getUserId();
-        String newAccessToken = jwtUtil.generateAccessToken(userId);
+        Long userId = opt.get().getUserId();
+        String newAccess = jwtUtil.generateAccessToken(userId);
 
-        boolean secure = !isLocalhost(origin);
+        boolean secure = !isLocal(origin);
 
-        ResponseCookie refreshCookie = buildCookie("refresh_token", newRefresh.getToken(), secure);
-        ResponseCookie csrfCookieNew = buildCsrfCookie(UUID.randomUUID().toString(), secure);
+        ResponseCookie refreshCookie =
+                buildCookie("refresh_token", opt.get().getToken(), secure, true);
+
+        ResponseCookie csrfCookieNew =
+                buildCookie("XSRF-TOKEN", UUID.randomUUID().toString(), secure, false);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, csrfCookieNew.toString())
-                .body(Map.of("accessToken", newAccessToken));
+                .body(Map.of("accessToken", newAccess));
     }
 
-    /** 로그아웃 */
+    /** logout */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(
             @CookieValue(value = "refresh_token", required = false) String token,
@@ -155,19 +147,19 @@ public class AuthController {
             authService.verifyToken(token).ifPresent(t -> authService.deleteByUserId(t.getUserId()));
         }
 
-        boolean secure = !isLocalhost(request.getHeader("Origin"));
+        String origin = request.getHeader("Origin");
+        boolean secure = !isLocal(origin);
 
-        ResponseCookie expiredCookie = ResponseCookie.from("refresh_token", "")
+        ResponseCookie expired = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true)
                 .secure(secure)
                 .path("/")
-                .domain("candybackend-6skt.onrender.com")   // ★ 핵심
                 .sameSite("None")
                 .maxAge(0)
                 .build();
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, expiredCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, expired.toString())
                 .body(Map.of("message", "Logged out"));
     }
 }
