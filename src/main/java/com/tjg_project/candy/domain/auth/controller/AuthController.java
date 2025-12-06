@@ -25,6 +25,7 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final AuthService authService;
     private final UsersService usersService;
+
     private final Set<String> allowedOrigins = Set.of(
             "http://localhost:3000",
             "https://candy-site.vercel.app"
@@ -38,46 +39,69 @@ public class AuthController {
     }
 
     /**
+     * 환경에 따라 secure 자동 적용
+     */
+    private boolean isLocalhost(String origin) {
+        return origin != null && origin.startsWith("http://localhost");
+    }
+
+    private ResponseCookie buildCookie(String name, String value, boolean secure) {
+        return ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(secure)              // 🔥 HTTPS 환경에서는 반드시 true
+                .path("/")
+                .sameSite("None")           // 🔥 cross-site 전송 허용
+                .maxAge(7 * 24 * 60 * 60)
+                .build();
+    }
+
+    private ResponseCookie buildCsrfCookie(String value, boolean secure) {
+        return ResponseCookie.from("XSRF-TOKEN", value)
+                .httpOnly(false)
+                .secure(secure)
+                .path("/")
+                .sameSite("None")
+                .maxAge(7 * 24 * 60 * 60)
+                .build();
+    }
+
+    /**
      * ✅ 로그인 처리
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Users user) {
-        Users us = usersService.login(user.getUserId(), user.getPassword());
+    public ResponseEntity<?> login(@RequestBody Users user, HttpServletRequest request) {
 
+        Users us = usersService.login(user.getUserId(), user.getPassword());
         if (us == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
         }
 
-        Long userId = us.getId(); // ✅ 실제 유저 PK
+        Long userId = us.getId();
         String accessToken = jwtUtil.generateAccessToken(userId);
         RefreshToken refresh = authService.createRefreshToken(userId);
 
-        // ✅ HttpOnly 쿠키에 RefreshToken 저장
-        ResponseCookie cookie = ResponseCookie.from("refresh_token", refresh.getToken())
-                .httpOnly(true)
-                .secure(false) // 배포 시 true
-                .path("/")
-                .maxAge(7 * 24 * 60 * 60)
-                .sameSite("Lax")
-                .build();
-
         String csrfToken = UUID.randomUUID().toString();
-        ResponseCookie csrfCookie = ResponseCookie.from("XSRF-TOKEN", csrfToken)
-                .httpOnly(false)  // JS가 읽을 수 있어야 함
-                .secure(false)    // 배포 시 true
-                .path("/")
-                .sameSite("Lax")
-                .maxAge(7 * 24 * 60 * 60)
-                .build();
+
+        boolean secure = !isLocalhost(request.getHeader("Origin"));
+
+        // refresh token
+        ResponseCookie refreshCookie = buildCookie("refresh_token", refresh.getToken(), secure);
+
+        // csrf token
+        ResponseCookie csrfCookie = buildCsrfCookie(csrfToken, secure);
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, csrfCookie.toString())
-                .body(Map.of("accessToken", accessToken,
+                .body(Map.of(
+                        "accessToken", accessToken,
                         "role", us.getRole()
                 ));
     }
 
+    /**
+     * 🔄 토큰 재발급(refresh)
+     */
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(
             @CookieValue(value = "refresh_token", required = false) String token,
@@ -86,25 +110,21 @@ public class AuthController {
             HttpServletRequest request
     ) {
 
-        // ✅ Origin 검증 (CORS 허용 도메인만 통과)
         String origin = request.getHeader("Origin");
         String referer = request.getHeader("Referer");
-        System.out.println("origin"+ origin);
+
         if (origin == null || !allowedOrigins.contains(origin)) {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid origin"));
         }
 
-        if (referer != null) {
-            if (allowedOrigins.stream().noneMatch(referer::startsWith)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body("Invalid Referer");
-            }
+        if (referer != null && allowedOrigins.stream().noneMatch(referer::startsWith)) {
+            return ResponseEntity.status(403).body("Invalid Referer");
         }
 
         if (token == null)
             return ResponseEntity.status(401).body(Map.of("error", "No refresh token"));
 
-        // ✅ CSRF Double Submit 검사
+        // CSRF 검사
         if (csrfCookie == null || csrfHeader == null || !csrfCookie.equals(csrfHeader)) {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid CSRF token"));
         }
@@ -117,45 +137,37 @@ public class AuthController {
         Long userId = newRefresh.getUserId();
         String newAccessToken = jwtUtil.generateAccessToken(userId);
 
-        ResponseCookie cookie = ResponseCookie.from("refresh_token", newRefresh.getToken())
-                .httpOnly(true)
-                .secure(false)
-                .path("/")
-                .sameSite("Lax")
-                .maxAge(7 * 24 * 60 * 60)
-                .build();
+        boolean secure = !isLocalhost(origin);
 
-        // ✅ 새로운 CSRF 토큰 생성 (이게 중요)
-        String newCsrf = UUID.randomUUID().toString();
-        ResponseCookie csrfCookieNew = ResponseCookie.from("XSRF-TOKEN", newCsrf)
-                .httpOnly(false)
-                .secure(false)
-                .path("/")
-                .sameSite("Lax")
-                .maxAge(7 * 24 * 60 * 60)
-                .build();
+        ResponseCookie refreshCookie = buildCookie("refresh_token", newRefresh.getToken(), secure);
+        ResponseCookie csrfCookieNew = buildCsrfCookie(UUID.randomUUID().toString(), secure);
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, csrfCookieNew.toString())
-                .body(Map.of("accessToken", newAccessToken
-                        ));
+                .body(Map.of("accessToken", newAccessToken));
     }
 
     /**
-     * ✅ 로그아웃 처리
+     * 🚪 로그아웃
      */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@CookieValue(value = "refresh_token", required = false) String token) {
-        System.out.println("✅ verifyToken() token = " + token);
+    public ResponseEntity<?> logout(
+            @CookieValue(value = "refresh_token", required = false) String token,
+            HttpServletRequest request
+    ) {
+
         if (token != null) {
             authService.verifyToken(token).ifPresent(t -> authService.deleteByUserId(t.getUserId()));
         }
+
+        boolean secure = !isLocalhost(request.getHeader("Origin"));
+
         ResponseCookie expiredCookie = ResponseCookie.from("refresh_token", "")
                 .httpOnly(true)
-                .secure(false)
+                .secure(secure)
                 .path("/")
-                .sameSite("Lax")
+                .sameSite("None")
                 .maxAge(0)
                 .build();
 
