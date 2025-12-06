@@ -6,20 +6,31 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 
-// CsrfController.java (추가)
 @RestController
 public class CsrfController {
+
+    private boolean isLocalhost(String origin) {
+        return origin != null && origin.startsWith("http://localhost");
+    }
+
     @GetMapping("/csrf")
-    public ResponseEntity<Void> getCsrfToken() {
+    public ResponseEntity<Void> getCsrfToken(HttpServletRequest request) {
 
         String csrfToken = UUID.randomUUID().toString();
+
+        String origin = request.getHeader("Origin");
+        boolean secure = !isLocalhost(origin);
+        // localhost에서는 secure=false
+        // 배포(HTTPS)에서는 secure=true
+
         ResponseCookie csrfCookie = ResponseCookie.from("XSRF-TOKEN", csrfToken)
-                .httpOnly(false)  // JS가 읽을 수 있어야 함
-                .secure(false)    // 배포 시 true
+                .httpOnly(false)
+                .secure(secure)       // 🔥 HTTPS에서는 반드시 true
                 .path("/")
-                .sameSite("Lax")
+                .sameSite("None")     // 🔥 Lax → None으로 변경 (cross-site 허용)
                 .maxAge(7 * 24 * 60 * 60)
                 .build();
 
