@@ -61,12 +61,27 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "https://localhost:3000",
                 "http://127.0.0.1:3000",
-                "https://candy-site.vercel.app" // ← 슬래시 절대 넣지 말기
+                "https://candy-site.vercel.app"
         ));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+
+        configuration.setAllowedHeaders(List.of(
+                "X-XSRF-TOKEN",
+                "XSRF-TOKEN",
+                "Content-Type",
+                "Authorization",
+                "Accept",
+                "Origin",
+                "Referer",
+                "User-Agent"
+        ));
+
+        // 브라우저가 읽을 수 있도록 허용할 헤더
+        configuration.setExposedHeaders(List.of(
+                "Authorization",
+                "X-XSRF-TOKEN"
+        ));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
