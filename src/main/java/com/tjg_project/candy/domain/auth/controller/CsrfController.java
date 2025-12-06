@@ -23,14 +23,13 @@ public class CsrfController {
 
         String origin = request.getHeader("Origin");
         boolean secure = !isLocalhost(origin);
-        // localhost에서는 secure=false
-        // 배포(HTTPS)에서는 secure=true
 
         ResponseCookie csrfCookie = ResponseCookie.from("XSRF-TOKEN", csrfToken)
                 .httpOnly(false)
-                .secure(secure)       // 🔥 HTTPS에서는 반드시 true
+                .secure(secure)
                 .path("/")
-                .sameSite("None")     // 🔥 Lax → None으로 변경 (cross-site 허용)
+                .domain("candybackend-6skt.onrender.com")   // ★ 핵심
+                .sameSite("None")
                 .maxAge(7 * 24 * 60 * 60)
                 .build();
 

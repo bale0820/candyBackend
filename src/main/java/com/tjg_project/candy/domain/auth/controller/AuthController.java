@@ -5,6 +5,7 @@ import com.tjg_project.candy.domain.auth.service.AuthService;
 import com.tjg_project.candy.domain.user.entity.Users;
 import com.tjg_project.candy.domain.user.service.UsersService;
 import com.tjg_project.candy.global.util.JwtUtil;
+
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -25,7 +26,6 @@ public class AuthController {
     private final AuthService authService;
     private final UsersService usersService;
 
-    // ❗ origin만 넣는다 (referer는 startsWith로 검사)
     private final Set<String> allowedOrigins = Set.of(
             "http://localhost:3000",
             "https://candy-site.vercel.app"
@@ -42,21 +42,25 @@ public class AuthController {
         return origin != null && origin.startsWith("http://localhost");
     }
 
+    // ★ Refresh Token 쿠키 설정
     private ResponseCookie buildCookie(String name, String value, boolean secure) {
         return ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(secure)
                 .path("/")
+                .domain("candybackend-6skt.onrender.com")   // ★ 핵심
                 .sameSite("None")
                 .maxAge(7 * 24 * 60 * 60)
                 .build();
     }
 
+    // ★ CSRF Token 쿠키 설정
     private ResponseCookie buildCsrfCookie(String value, boolean secure) {
         return ResponseCookie.from("XSRF-TOKEN", value)
                 .httpOnly(false)
                 .secure(secure)
                 .path("/")
+                .domain("candybackend-6skt.onrender.com")   // ★ 핵심
                 .sameSite("None")
                 .maxAge(7 * 24 * 60 * 60)
                 .build();
@@ -72,11 +76,12 @@ public class AuthController {
         }
 
         Long userId = us.getId();
+
         String accessToken = jwtUtil.generateAccessToken(userId);
         RefreshToken refresh = authService.createRefreshToken(userId);
 
-        String csrfToken = UUID.randomUUID().toString();
         boolean secure = !isLocalhost(request.getHeader("Origin"));
+        String csrfToken = UUID.randomUUID().toString();
 
         ResponseCookie refreshCookie = buildCookie("refresh_token", refresh.getToken(), secure);
         ResponseCookie csrfCookie = buildCsrfCookie(csrfToken, secure);
@@ -90,7 +95,7 @@ public class AuthController {
                 ));
     }
 
-    /** refresh */
+    /** 토큰 재발급 */
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(
             @CookieValue(value = "refresh_token", required = false) String token,
@@ -102,24 +107,19 @@ public class AuthController {
         String origin = request.getHeader("Origin");
         String referer = request.getHeader("Referer");
 
-        // 🔥 origin strict check
         if (origin == null || !allowedOrigins.contains(origin)) {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid origin"));
         }
 
-        // 🔥 referer startsWith 검사 (중요)
-        if (referer != null) {
-            boolean ok = allowedOrigins.stream().anyMatch(referer::startsWith);
-            if (!ok) {
-                return ResponseEntity.status(403).body(Map.of("error", "Invalid referer"));
-            }
+        if (referer != null &&
+                allowedOrigins.stream().noneMatch(referer::startsWith)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Invalid referer"));
         }
 
         if (token == null) {
             return ResponseEntity.status(401).body(Map.of("error", "No refresh token"));
         }
 
-        // CSRF 검사
         if (csrfCookie == null || csrfHeader == null || !csrfCookie.equals(csrfHeader)) {
             return ResponseEntity.status(403).body(Map.of("error", "Invalid CSRF token"));
         }
@@ -144,7 +144,7 @@ public class AuthController {
                 .body(Map.of("accessToken", newAccessToken));
     }
 
-    /** logout */
+    /** 로그아웃 */
     @PostMapping("/logout")
     public ResponseEntity<?> logout(
             @CookieValue(value = "refresh_token", required = false) String token,
@@ -161,6 +161,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(secure)
                 .path("/")
+                .domain("candybackend-6skt.onrender.com")   // ★ 핵심
                 .sameSite("None")
                 .maxAge(0)
                 .build();
