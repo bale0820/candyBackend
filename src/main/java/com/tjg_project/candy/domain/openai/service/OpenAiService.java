@@ -14,7 +14,7 @@ import java.util.Collections;
 @RequiredArgsConstructor
 public class OpenAiService {
 
-//    @Value("${openai.api-key}")
+    @Value("${openai.api-key}")
     private String apiKey;
 
     private final RestTemplate restTemplate = new RestTemplate();
