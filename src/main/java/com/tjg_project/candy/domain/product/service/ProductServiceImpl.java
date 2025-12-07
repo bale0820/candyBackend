@@ -233,20 +233,15 @@ import java.util.*;
 @Service
 public class ProductServiceImpl implements ProductService {
 
-    // 이미지 종류 구분
     private final static int PRODUCT_IMAGES = 0;
     private final static int PRODUCT_INFORMATION = 1;
     private final static int PRODUCT_DESCRIPTION = 2;
 
-    // Supabase 정보 (yml에서 읽어옴)
     @Value("${supabase.url}")
     private String supabaseUrl;
 
     @Value("${supabase.key}")
     private String supabaseKey;
-
-    @Value("${supabase.bucket}")
-    private String bucketName;
 
 
     @Autowired
@@ -259,6 +254,7 @@ public class ProductServiceImpl implements ProductService {
     private ProductDetailViewRepository productDetailViewRepository;
     @Autowired
     private OrderDetailRepository orderDetailRepository;
+
 
     @Override
     public List<Product> getProductList() {
@@ -352,38 +348,35 @@ public class ProductServiceImpl implements ProductService {
     }
 
 
-    // -----------------------------
-    //    🔥 Supabase 파일 업로드
-    // -----------------------------
-    private String uploadToSupabase(MultipartFile file, String directory) {
+
+    // ------------------------------------------------------
+    //  SUPABASE 업로드 (bucket 없이 /public/<folder>/ 파일 생성)
+    // ------------------------------------------------------
+    private String uploadToSupabase(MultipartFile file, String folder) {
 
         try {
             String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
 
-            // Supabase 저장 경로
-            String path = directory + "/" + fileName;
+            // 업로드 경로: storage/v1/object/<folder>/<file>
+            String uploadUrl = supabaseUrl + "/storage/v1/object/" + folder + "/" + fileName;
 
-            // 업로드 URL
-            String uploadUrl = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + path;
-
-            // Header
             HttpHeaders headers = new HttpHeaders();
             headers.set("apikey", supabaseKey);
             headers.set("Authorization", "Bearer " + supabaseKey);
             headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
 
-            // Request entity
             HttpEntity<byte[]> entity = new HttpEntity<>(file.getBytes(), headers);
 
-            RestTemplate restTemplate = new RestTemplate();
-            ResponseEntity<String> res = restTemplate.exchange(uploadUrl, HttpMethod.PUT, entity, String.class);
+            RestTemplate rest = new RestTemplate();
+            ResponseEntity<String> res =
+                    rest.exchange(uploadUrl, HttpMethod.PUT, entity, String.class);
 
-            if (res.getStatusCode().is2xxSuccessful()) {
-                // public URL 반환
-                return supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + path;
+            if (!res.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Supabase upload failed");
             }
 
-            throw new RuntimeException("Supabase upload failed");
+            // public URL 반환
+            return supabaseUrl + "/storage/v1/object/public/" + folder + "/" + fileName;
 
         } catch (Exception e) {
             throw new RuntimeException("Supabase Upload Error: " + e.getMessage());
@@ -391,21 +384,21 @@ public class ProductServiceImpl implements ProductService {
     }
 
 
-    // ----------------------------------
-    //   🔥 기존 setImages → Supabase 적용
-    // ----------------------------------
+
+    // ------------------------------------------------------
+    // 이미지 저장 (폴더만 넘겨서 public root 에 저장)
+    // ------------------------------------------------------
     public void setImages(Product product, MultipartFile file, int idx) {
 
-        if (file == null || file.isEmpty()) {
-            return; // 파일 없으면 처리 X
-        }
+        if (file == null || file.isEmpty()) return;
 
         String folder;
         String imageUrl;
 
         switch (idx) {
+
             case PRODUCT_IMAGES:
-                folder = "productImages";
+                folder = "productImages"; // public/productImages/
                 imageUrl = uploadToSupabase(file, folder);
                 product.setImageUrl(imageUrl);
                 product.setImageUrlName(file.getOriginalFilename());
@@ -424,14 +417,14 @@ public class ProductServiceImpl implements ProductService {
                 break;
 
             default:
-                throw new IllegalStateException("Unexpected value: " + idx);
+                throw new IllegalStateException("Unexpected idx: " + idx);
         }
     }
 
 
+
     @Override
     public boolean updateCount(List<KakaoPay.ProductInfo> productInfo) {
-
         boolean result = false;
         List<Integer> row = new ArrayList<>();
 
@@ -439,9 +432,6 @@ public class ProductServiceImpl implements ProductService {
                 row.add(productRepository.decreaseCount(info.getPid(), info.getQty()))
         );
 
-        if (!row.isEmpty()) {
-            result = true;
-        }
-        return result;
+        return !row.isEmpty();
     }
 }
