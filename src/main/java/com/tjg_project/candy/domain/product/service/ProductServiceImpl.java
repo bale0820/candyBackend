@@ -405,7 +405,7 @@ public class ProductServiceImpl implements ProductService {
                 break;
 
             case PRODUCT_INFORMATION:
-                folder = "productInformation";
+                folder = "productInformationImage";
                 imageUrl = uploadToSupabase(file, folder);
                 product.setProductInformationImage(imageUrl);
                 break;
