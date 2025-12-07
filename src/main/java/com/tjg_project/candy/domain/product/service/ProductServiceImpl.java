@@ -355,9 +355,13 @@ public class ProductServiceImpl implements ProductService {
     private String uploadToSupabase(MultipartFile file, String folder) {
 
         try {
-            String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            // 파일명 정제
+            String cleanName = file.getOriginalFilename()
+                    .replaceAll("[^a-zA-Z0-9.\\-]", "_");
 
-            // 업로드 경로: storage/v1/object/<folder>/<file>
+            String fileName = UUID.randomUUID() + "_" + cleanName;
+
+            // 업로드 URL
             String uploadUrl = supabaseUrl + "/storage/v1/object/" + folder + "/" + fileName;
 
             HttpHeaders headers = new HttpHeaders();
@@ -368,14 +372,13 @@ public class ProductServiceImpl implements ProductService {
             HttpEntity<byte[]> entity = new HttpEntity<>(file.getBytes(), headers);
 
             RestTemplate rest = new RestTemplate();
-            ResponseEntity<String> res =
-                    rest.exchange(uploadUrl, HttpMethod.PUT, entity, String.class);
+            ResponseEntity<String> res = rest.exchange(uploadUrl, HttpMethod.PUT, entity, String.class);
 
             if (!res.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("Supabase upload failed");
+                throw new RuntimeException("Upload failed: " + res.getBody());
             }
 
-            // public URL 반환
+            // 공개 URL
             return supabaseUrl + "/storage/v1/object/public/" + folder + "/" + fileName;
 
         } catch (Exception e) {
