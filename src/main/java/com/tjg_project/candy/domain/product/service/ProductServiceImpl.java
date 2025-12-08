@@ -379,7 +379,8 @@ public class ProductServiceImpl implements ProductService {
             }
 
             // 공개 URL
-            return supabaseUrl + "/storage/v1/object/public/" + folder + "/" + fileName;
+//            return supabaseUrl + "/storage/v1/object/public/" + folder + "/" + fileName;
+            return fileName;
 
         } catch (Exception e) {
             throw new RuntimeException("Supabase Upload Error: " + e.getMessage());
